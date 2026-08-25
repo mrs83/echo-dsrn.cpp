@@ -101,6 +101,8 @@ enum llm_arch {
     LLM_ARCH_EXAONE_MOE,
     LLM_ARCH_RWKV6,
     LLM_ARCH_RWKV6QWEN2,
+    LLM_ARCH_ECHO_DSRN_HYBRID,
+    LLM_ARCH_ECHO_DSRN_BASE,
     LLM_ARCH_RWKV7,
     LLM_ARCH_ARWKV7,
     LLM_ARCH_GRANITE,
@@ -330,6 +332,10 @@ enum llm_kv {
     LLM_KV_SSM_GROUP_COUNT,
     LLM_KV_SSM_DT_B_C_RMS,
 
+    LLM_KV_DSRN_STATE_DIM,
+    LLM_KV_DSRN_INJECTION_STRIDE,
+    LLM_KV_DSRN_WINDOW_SIZE,
+
     LLM_KV_KDA_HEAD_DIM,
     LLM_KV_KDA_SAFE_GATE,
     LLM_KV_KDA_GATE_LOWER_BOUND,
@@ -502,6 +508,13 @@ enum llm_tensor {
     LLM_TENSOR_SSM_CONV1D_Q,        // kimi: Q conv1d weight
     LLM_TENSOR_SSM_CONV1D_K,        // kimi: K conv1d weight
     LLM_TENSOR_SSM_CONV1D_V,        // kimi: V conv1d weight
+    LLM_TENSOR_DSRN_NORM,           // Echo-DSRN: fast-state RMSNorm
+    LLM_TENSOR_DSRN_GRU,            // Echo-DSRN: fast-state GRU cell (weight_ih / bias_ih)
+    LLM_TENSOR_DSRN_PRED,           // Echo-DSRN: h_{t-1} -> x̂_t prediction head
+    LLM_TENSOR_DSRN_GATE,           // Echo-DSRN: fast-state -> slow-state write gate
+    LLM_TENSOR_DSRN_MEM,            // Echo-DSRN: fast-state -> slow-state memory candidate
+    LLM_TENSOR_DSRN_LAMBDA,         // Echo-DSRN: per-dim surprise scaling (softplus)
+    LLM_TENSOR_DSRN_READ,           // Echo-DSRN: slow-state -> residual readout
     LLM_TENSOR_SSM_F_A,             // kimi: forget gate projection A
     LLM_TENSOR_SSM_F_B,             // kimi: forget gate projection B
     LLM_TENSOR_SSM_BETA,            // kimi: beta mixing coefficient and qwen3.5

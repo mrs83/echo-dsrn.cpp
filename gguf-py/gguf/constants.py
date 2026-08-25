@@ -264,6 +264,11 @@ class Keys:
         GROUP_COUNT    = "{arch}.ssm.group_count"
         DT_B_C_RMS     = "{arch}.ssm.dt_b_c_rms"
 
+    class DSRN:
+        STATE_DIM        = "{arch}.dsrn.state_dim"          # slow-state dim D_s
+        INJECTION_STRIDE = "{arch}.dsrn.injection_stride"   # hybrid only
+        WINDOW_SIZE      = "{arch}.dsrn.window_size"        # base only
+
     class KDA:
         HEAD_DIM         = "{arch}.kda.head_dim"
         SAFE_GATE        = "{arch}.kda.safe_gate"
@@ -515,6 +520,8 @@ class MODEL_ARCH(IntEnum):
     STARCODER2       = auto()
     RWKV6            = auto()
     RWKV6QWEN2       = auto()
+    ECHO_DSRN_HYBRID = auto()
+    ECHO_DSRN_BASE   = auto()
     RWKV7            = auto()
     ARWKV7           = auto()
     MAMBA            = auto()
@@ -714,6 +721,13 @@ class MODEL_TENSOR(IntEnum):
     SSM_CONV1D_Q         = auto() # Kimi Linear
     SSM_CONV1D_K         = auto() # Kimi Linear
     SSM_CONV1D_V         = auto() # Kimi Linear
+    DSRN_NORM            = auto() # Echo-DSRN: fast-state RMSNorm
+    DSRN_GRU             = auto() # Echo-DSRN: fast-state GRU cell (weight_ih / bias_ih)
+    DSRN_PRED            = auto() # Echo-DSRN: h_{t-1} -> x̂_t prediction head
+    DSRN_GATE            = auto() # Echo-DSRN: fast-state -> slow-state write gate
+    DSRN_MEM             = auto() # Echo-DSRN: fast-state -> slow-state memory candidate
+    DSRN_LAMBDA          = auto() # Echo-DSRN: per-dim surprise scaling (softplus)
+    DSRN_READ            = auto() # Echo-DSRN: slow-state -> residual readout
     SSM_F_A              = auto() # Kimi Linear
     SSM_F_B              = auto() # Kimi Linear
     SSM_BETA             = auto() # Kimi Linear qwen3.5
@@ -1238,6 +1252,8 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.STARCODER2:       "starcoder2",
     MODEL_ARCH.RWKV6:            "rwkv6",
     MODEL_ARCH.RWKV6QWEN2:       "rwkv6qwen2",
+    MODEL_ARCH.ECHO_DSRN_HYBRID: "echo-dsrn-hybrid",
+    MODEL_ARCH.ECHO_DSRN_BASE:   "echo-dsrn-base",
     MODEL_ARCH.RWKV7:            "rwkv7",
     MODEL_ARCH.ARWKV7:           "arwkv7",
     MODEL_ARCH.MAMBA:            "mamba",
@@ -1436,6 +1452,13 @@ TENSOR_NAMES: dict[MODEL_TENSOR, str] = {
     MODEL_TENSOR.SSM_CONV1D_Q:              "blk.{bid}.ssm_conv1d_q",         # Kimi Linear
     MODEL_TENSOR.SSM_CONV1D_K:              "blk.{bid}.ssm_conv1d_k",         # Kimi Linear
     MODEL_TENSOR.SSM_CONV1D_V:              "blk.{bid}.ssm_conv1d_v",         # Kimi Linear
+    MODEL_TENSOR.DSRN_NORM:                 "blk.{bid}.dsrn_norm",            # Echo-DSRN
+    MODEL_TENSOR.DSRN_GRU:                  "blk.{bid}.dsrn_gru",             # Echo-DSRN
+    MODEL_TENSOR.DSRN_PRED:                 "blk.{bid}.dsrn_pred",            # Echo-DSRN
+    MODEL_TENSOR.DSRN_GATE:                 "blk.{bid}.dsrn_gate",            # Echo-DSRN
+    MODEL_TENSOR.DSRN_MEM:                  "blk.{bid}.dsrn_mem",             # Echo-DSRN
+    MODEL_TENSOR.DSRN_LAMBDA:               "blk.{bid}.dsrn_lambda",          # Echo-DSRN
+    MODEL_TENSOR.DSRN_READ:                 "blk.{bid}.dsrn_read",            # Echo-DSRN
     MODEL_TENSOR.SSM_F_A:                   "blk.{bid}.ssm_f_a",              # Kimi Linear
     MODEL_TENSOR.SSM_F_B:                   "blk.{bid}.ssm_f_b",              # Kimi Linear
     MODEL_TENSOR.SSM_BETA:                  "blk.{bid}.ssm_beta",             # Kimi Linear qwen3.5
@@ -2556,6 +2579,50 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_GATE,
         MODEL_TENSOR.FFN_DOWN,
         MODEL_TENSOR.FFN_UP,
+    ],
+    MODEL_ARCH.ECHO_DSRN_HYBRID: [
+        # Qwen2 backbone + DSRN memory injectors (additive residual blocks)
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ROPE_FREQS,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_V,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.FFN_NORM,
+        MODEL_TENSOR.FFN_GATE,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+        MODEL_TENSOR.DSRN_NORM,
+        MODEL_TENSOR.DSRN_GRU,
+        MODEL_TENSOR.DSRN_PRED,
+        MODEL_TENSOR.DSRN_GATE,
+        MODEL_TENSOR.DSRN_MEM,
+        MODEL_TENSOR.DSRN_LAMBDA,
+        MODEL_TENSOR.DSRN_READ,
+    ],
+    MODEL_ARCH.ECHO_DSRN_BASE: [
+        # Fully recurrent block: fast/slow DSRN recurrences + SWA + MLP
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ROPE_FREQS,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_QKV,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.FFN_NORM,
+        MODEL_TENSOR.FFN_GATE,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+        MODEL_TENSOR.DSRN_NORM,
+        MODEL_TENSOR.DSRN_GRU,
+        MODEL_TENSOR.DSRN_PRED,
+        MODEL_TENSOR.DSRN_GATE,
+        MODEL_TENSOR.DSRN_MEM,
+        MODEL_TENSOR.DSRN_LAMBDA,
+        MODEL_TENSOR.DSRN_READ,
     ],
     MODEL_ARCH.DREAM: [
         MODEL_TENSOR.TOKEN_EMBD,
@@ -5623,6 +5690,11 @@ KEY_SSM_CONV_KERNEL    = Keys.SSM.CONV_KERNEL
 KEY_SSM_INNER_SIZE     = Keys.SSM.INNER_SIZE
 KEY_SSM_STATE_SIZE     = Keys.SSM.STATE_SIZE
 KEY_SSM_TIME_STEP_RANK = Keys.SSM.TIME_STEP_RANK
+
+# DSRN
+KEY_DSRN_STATE_DIM        = Keys.DSRN.STATE_DIM
+KEY_DSRN_INJECTION_STRIDE = Keys.DSRN.INJECTION_STRIDE
+KEY_DSRN_WINDOW_SIZE      = Keys.DSRN.WINDOW_SIZE
 KEY_SSM_GROUP_COUNT    = Keys.SSM.GROUP_COUNT
 KEY_SSM_DT_B_C_RMS     = Keys.SSM.DT_B_C_RMS
 

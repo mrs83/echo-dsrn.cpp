@@ -1118,6 +1118,15 @@ class GGUFWriter:
     def add_ssm_dt_b_c_rms(self, value: bool) -> None:
         self.add_bool(Keys.SSM.DT_B_C_RMS.format(arch=self.arch), value)
 
+    def add_dsrn_state_dim(self, value: int) -> None:
+        self.add_uint32(Keys.DSRN.STATE_DIM.format(arch=self.arch), value)
+
+    def add_dsrn_injection_stride(self, value: int) -> None:
+        self.add_uint32(Keys.DSRN.INJECTION_STRIDE.format(arch=self.arch), value)
+
+    def add_dsrn_window_size(self, value: int) -> None:
+        self.add_uint32(Keys.DSRN.WINDOW_SIZE.format(arch=self.arch), value)
+
     def add_expert_latent_length(self, value: int) -> None:
         self.add_uint32(Keys.LLM.EXPERT_LATENT_LENGTH.format(arch=self.arch), value)
 

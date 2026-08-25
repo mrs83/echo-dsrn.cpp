@@ -378,6 +378,18 @@ struct llama_layer {
     struct ggml_tensor * ssm_conv1d_b = nullptr;
     struct ggml_tensor * ssm_dt_b     = nullptr;
 
+    // Echo-DSRN injector (hybrid) / block (base)
+    struct ggml_tensor * dsrn_norm     = nullptr; // fast-state RMSNorm
+    struct ggml_tensor * dsrn_gru      = nullptr; // fast-state GRU weight_ih
+    struct ggml_tensor * dsrn_gru_b    = nullptr; // fast-state GRU bias_ih
+    struct ggml_tensor * dsrn_pred     = nullptr; // h_{t-1} -> x̂_t prediction
+    struct ggml_tensor * dsrn_gate     = nullptr; // fast -> slow write gate
+    struct ggml_tensor * dsrn_gate_b   = nullptr;
+    struct ggml_tensor * dsrn_mem      = nullptr; // fast -> slow memory candidate
+    struct ggml_tensor * dsrn_mem_b    = nullptr;
+    struct ggml_tensor * dsrn_lambda   = nullptr; // per-dim surprise scaling
+    struct ggml_tensor * dsrn_read     = nullptr; // slow -> residual readout
+
     // qwen3next
     struct ggml_tensor * ssm_beta_alpha = nullptr;
 

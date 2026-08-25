@@ -235,6 +235,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
             return new llama_model_rwkv6(params);
         case LLM_ARCH_RWKV6QWEN2:
             return new llama_model_rwkv6qwen2(params);
+        case LLM_ARCH_ECHO_DSRN_HYBRID:
+            return new llama_model_echo_dsrn_hybrid(params);
         case LLM_ARCH_RWKV7:
             return new llama_model_rwkv7(params);
         case LLM_ARCH_ARWKV7:
@@ -2441,6 +2443,17 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params, 
                         filter_recr = [&](uint32_t il) {
                             return hparams.is_recr(il) && hparams.n_ff(il) == 0;
                         };
+                    } else if (arch == LLM_ARCH_ECHO_DSRN_HYBRID) {
+                        // Qwen2 backbone attention on every layer; the DSRN
+                        // recurrent (h, c) states live on the injector layers
+                        filter_attn = [&](uint32_t il) {
+                            return il < hparams.n_layer();
+                        };
+                        filter_recr = [&](uint32_t il) {
+                            return il < hparams.n_layer() &&
+                                hparams.dsrn_injection_stride > 0 &&
+                                ((il + 1) % hparams.dsrn_injection_stride) == 0;
+                        };
                     } else if (arch == LLM_ARCH_QWEN3NEXT || arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35MOE || arch == LLM_ARCH_MINIMAX_01) {
                         filter_attn = [&](uint32_t il) {
                             return il < hparams.n_layer() && !hparams.is_recr(il);
@@ -2822,6 +2835,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
         case LLM_ARCH_BITNET:
         case LLM_ARCH_QWEN:
         case LLM_ARCH_QWEN2:
+        case LLM_ARCH_ECHO_DSRN_HYBRID:
         case LLM_ARCH_DREAM:
         case LLM_ARCH_QWEN2MOE:
         case LLM_ARCH_QWEN3:

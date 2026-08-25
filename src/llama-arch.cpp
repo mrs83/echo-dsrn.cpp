@@ -96,6 +96,8 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
     { LLM_ARCH_EXAONE_MOE,       "exaone-moe"       },
     { LLM_ARCH_RWKV6,            "rwkv6"            },
     { LLM_ARCH_RWKV6QWEN2,       "rwkv6qwen2"       },
+    { LLM_ARCH_ECHO_DSRN_HYBRID, "echo-dsrn-hybrid" },
+    { LLM_ARCH_ECHO_DSRN_BASE,   "echo-dsrn-base"   },
     { LLM_ARCH_RWKV7,            "rwkv7"            },
     { LLM_ARCH_ARWKV7,           "arwkv7"           },
     { LLM_ARCH_GRANITE,          "granite"          },
@@ -325,6 +327,10 @@ static const std::map<llm_kv, const char *> LLM_KV_NAMES = {
     { LLM_KV_SSM_GROUP_COUNT,    "%s.ssm.group_count"    },
     { LLM_KV_SSM_DT_B_C_RMS,     "%s.ssm.dt_b_c_rms"     },
 
+    { LLM_KV_DSRN_STATE_DIM,        "%s.dsrn.state_dim"        },
+    { LLM_KV_DSRN_INJECTION_STRIDE, "%s.dsrn.injection_stride" },
+    { LLM_KV_DSRN_WINDOW_SIZE,      "%s.dsrn.window_size"      },
+
     { LLM_KV_KDA_HEAD_DIM,         "%s.kda.head_dim"         },
     { LLM_KV_KDA_SAFE_GATE,        "%s.kda.safe_gate"        },
     { LLM_KV_KDA_GATE_LOWER_BOUND, "%s.kda.gate_lower_bound" },
@@ -474,6 +480,13 @@ static const std::map<llm_tensor, const char *> LLM_TENSOR_NAMES = {
     { LLM_TENSOR_SSM_CONV1D_Q,                           "blk.%d.ssm_conv1d_q" },
     { LLM_TENSOR_SSM_CONV1D_K,                           "blk.%d.ssm_conv1d_k" },
     { LLM_TENSOR_SSM_CONV1D_V,                           "blk.%d.ssm_conv1d_v" },
+    { LLM_TENSOR_DSRN_NORM,                              "blk.%d.dsrn_norm" },
+    { LLM_TENSOR_DSRN_GRU,                               "blk.%d.dsrn_gru" },
+    { LLM_TENSOR_DSRN_PRED,                              "blk.%d.dsrn_pred" },
+    { LLM_TENSOR_DSRN_GATE,                              "blk.%d.dsrn_gate" },
+    { LLM_TENSOR_DSRN_MEM,                               "blk.%d.dsrn_mem" },
+    { LLM_TENSOR_DSRN_LAMBDA,                            "blk.%d.dsrn_lambda" },
+    { LLM_TENSOR_DSRN_READ,                              "blk.%d.dsrn_read" },
     { LLM_TENSOR_SSM_F_A,                                "blk.%d.ssm_f_a" },
     { LLM_TENSOR_SSM_F_B,                                "blk.%d.ssm_f_b" },
     { LLM_TENSOR_SSM_BETA,                               "blk.%d.ssm_beta" },
@@ -774,6 +787,13 @@ static const std::map<llm_tensor, llm_tensor_info> LLM_TENSOR_INFOS = {
     {LLM_TENSOR_SSM_CONV1D_Q,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
     {LLM_TENSOR_SSM_CONV1D_K,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
     {LLM_TENSOR_SSM_CONV1D_V,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+    {LLM_TENSOR_DSRN_NORM,                  {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+    {LLM_TENSOR_DSRN_GRU,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+    {LLM_TENSOR_DSRN_PRED,                  {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+    {LLM_TENSOR_DSRN_GATE,                  {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+    {LLM_TENSOR_DSRN_MEM,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+    {LLM_TENSOR_DSRN_LAMBDA,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+    {LLM_TENSOR_DSRN_READ,                  {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
     {LLM_TENSOR_SSM_F_A,                    {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
     {LLM_TENSOR_SSM_F_B,                    {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
     {LLM_TENSOR_SSM_BETA,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
@@ -987,6 +1007,7 @@ bool llm_arch_is_recurrent(const llm_arch & arch) {
         case LLM_ARCH_RWKV6QWEN2:
         case LLM_ARCH_RWKV7:
         case LLM_ARCH_ARWKV7:
+        case LLM_ARCH_ECHO_DSRN_BASE:
             return true;
         default:
             return false;
@@ -1011,6 +1032,7 @@ bool llm_arch_is_hybrid(const llm_arch & arch) {
         case LLM_ARCH_QWEN35MOE:
         case LLM_ARCH_DEEPSEEK4:
         case LLM_ARCH_MINIMAX_01:
+        case LLM_ARCH_ECHO_DSRN_HYBRID:
             return true;
         default:
             return false;

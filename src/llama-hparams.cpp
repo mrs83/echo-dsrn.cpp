@@ -181,6 +181,11 @@ uint32_t llama_hparams::n_embd_v_gqa_max() const {
 }
 
 uint32_t llama_hparams::n_embd_r() const {
+    if (dsrn_state_dim != 0) {
+        // for Echo-DSRN: fast state h_t has the hidden-stream dim
+        return n_embd;
+    }
+
     if (wkv_head_size != 0) {
         // for RWKV models
         return token_shift_count * n_embd;
@@ -205,6 +210,11 @@ uint32_t llama_hparams::n_embd_r() const {
 }
 
 uint32_t llama_hparams::n_embd_s() const {
+    if (dsrn_state_dim != 0) {
+        // for Echo-DSRN: slow state c_t has the DSRN state dim
+        return dsrn_state_dim;
+    }
+
     if (wkv_head_size != 0) {
         // corresponds to RWKV's wkv_states size
         return n_embd * wkv_head_size;

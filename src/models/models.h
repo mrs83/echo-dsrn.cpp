@@ -1593,6 +1593,22 @@ struct llama_model_rwkv6qwen2 : public llama_model_base {
 };
 
 
+struct llama_model_echo_dsrn_hybrid : public llama_model_qwen2 {
+    llama_model_echo_dsrn_hybrid(const struct llama_model_params & params) : llama_model_qwen2(params) {}
+    void load_arch_hparams(llama_model_loader & ml) override;
+    void load_arch_tensors(llama_model_loader & ml) override;
+
+    struct graph : public llm_graph_context {
+        graph(const llama_model & model, const llm_graph_params & params);
+
+        // DSRN memory injector: additive residual block (h_t / c_t recurrences)
+        ggml_tensor * build_dsrn_injector(const llama_model & model, llm_graph_input_rs * inp, ggml_tensor * cur, int il) const;
+    };
+
+    std::unique_ptr<llm_graph_context> build_arch_graph(const llm_graph_params & params) const override;
+};
+
+
 struct llama_model_rwkv7 : public llama_model_base {
     llama_model_rwkv7(const struct llama_model_params & params) : llama_model_base(params) {}
     void load_arch_hparams(llama_model_loader & ml) override;

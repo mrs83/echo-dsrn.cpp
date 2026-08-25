@@ -174,6 +174,10 @@ struct llama_hparams {
     uint32_t ssm_dt_rank = 0;
     uint32_t ssm_n_group = 0;
 
+    // for Echo-DSRN
+    uint32_t dsrn_state_dim        = 0; // slow-state dim D_s
+    uint32_t dsrn_injection_stride = 0; // hybrid: injector every N layers (0 = N/A)
+
     // for MiniMax-Text-01 linear attention
     uint32_t n_embd_head_la = 0;
 
